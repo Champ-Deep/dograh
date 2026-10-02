@@ -112,6 +112,7 @@ class ServiceProviders(str, Enum):
     GOOGLE_VERTEX_REALTIME = "google_vertex_realtime"
     AZURE_REALTIME = "azure_realtime"
     AWS_NOVA_SONIC = "aws_nova_sonic"
+    PERSONAPLEX = "personaplex"
     SMALLEST = "smallest"
     XAI = "xai"
     LMNT = "lmnt"
@@ -148,6 +149,7 @@ class BaseServiceConfiguration(BaseModel):
         ServiceProviders.GOOGLE_VERTEX_REALTIME,
         ServiceProviders.AZURE_REALTIME,
         ServiceProviders.AWS_NOVA_SONIC,
+        ServiceProviders.PERSONAPLEX,
         ServiceProviders.SARVAM,
         ServiceProviders.SMALLEST,
         ServiceProviders.XAI,
@@ -384,6 +386,15 @@ AZURE_REALTIME_PROVIDER_MODEL_CONFIG = provider_model_config(
     "Azure OpenAI Realtime",
     description="Azure OpenAI Realtime API — low-latency speech-to-speech conversations.",
     provider_docs_url="https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio-quickstart",
+)
+PERSONAPLEX_PROVIDER_MODEL_CONFIG = provider_model_config(
+    "PersonaPlex",
+    description=(
+        "Self-hosted NVIDIA PersonaPlex full-duplex speech-to-speech model. "
+        "Runs the Moshi-lineage architecture; served over the Moshi binary "
+        "Opus WebSocket protocol, not the OpenAI Realtime event protocol."
+    ),
+    provider_docs_url="https://research.nvidia.com/labs/adlr/personaplex/",
 )
 AWS_NOVA_SONIC_PROVIDER_MODEL_CONFIG = provider_model_config(
     "AWS Nova 2 Sonic",
@@ -1121,6 +1132,91 @@ class AzureRealtimeLLMConfiguration(BaseLLMConfiguration):
     )
 
 
+PERSONAPLEX_VOICES = [
+    "NATF0",
+    "NATF1",
+    "NATF2",
+    "NATF3",
+    "NATM0",
+    "NATM1",
+    "NATM2",
+    "NATM3",
+    "VARF0",
+    "VARF1",
+    "VARF2",
+    "VARF3",
+    "VARF4",
+    "VARM0",
+    "VARM1",
+    "VARM2",
+    "VARM3",
+    "VARM4",
+]
+
+
+@register_service(ServiceType.REALTIME)
+class PersonaPlexRealtimeLLMConfiguration(BaseLLMConfiguration):
+    """Self-hosted NVIDIA PersonaPlex (Moshi-lineage full-duplex S2S).
+
+    PersonaPlex is not an OpenAI Realtime API server and cannot be reached by
+    pointing an OpenAI Realtime transport at it: it speaks Moshi's binary Opus
+    WebSocket protocol with a 0x00 handshake byte and 0x01-prefixed audio
+    frames. Pipecat ships no Moshi transport, so the service that speaks this
+    protocol lives in ``api/services/pipecat/realtime/personaplex.py``.
+
+    ``base_url`` is the one field every other realtime config in this registry
+    lacks. It exists here because a self-hosted S2S server is the only reason
+    to need one, and adding it generally also unblocks other self-hosted
+    realtime backends later.
+    """
+
+    model_config = PERSONAPLEX_PROVIDER_MODEL_CONFIG
+    provider: Literal[ServiceProviders.PERSONAPLEX] = ServiceProviders.PERSONAPLEX
+    model: str = Field(
+        default="personaplex-7b-v1",
+        description="Model identifier, recorded for display and run metadata.",
+        json_schema_extra={
+            "examples": ["personaplex-7b-v1"],
+            "allow_custom_input": True,
+        },
+    )
+    base_url: str = Field(
+        default="ws://localhost:8998/api/chat",
+        description=(
+            "Moshi-protocol WebSocket endpoint of the PersonaPlex server "
+            "(python -m moshi.server). Note ws://, not wss://, unless the "
+            "server was started with --ssl."
+        ),
+    )
+    voice: str = Field(
+        default="NATF2",
+        description=(
+            "Voice prompt preset conditioning the agent's vocal character. "
+            "These are precomputed audio-token embeddings shipped with the "
+            "model; a custom brand voice is supplied as a .pt voice prompt."
+        ),
+        json_schema_extra={
+            "examples": PERSONAPLEX_VOICES,
+            "allow_custom_input": True,
+        },
+    )
+    voice_prompt_path: str | None = Field(
+        default=None,
+        description=(
+            "Filesystem path to a custom .pt voice-prompt embedding. Leave "
+            "unset to use the preset named in `voice`. Runs on the PersonaPlex "
+            "host, not on the Dograh host."
+        ),
+    )
+    api_key: str | list[str] | None = Field(
+        default=None,
+        description=(
+            "Usually not required. PersonaPlex's reference server has no auth; "
+            "leave blank unless you front it with your own gateway."
+        ),
+    )
+
+
 REALTIME_PROVIDERS = {
     ServiceProviders.OPENAI_REALTIME.value,
     ServiceProviders.GROK_REALTIME.value,
@@ -1129,6 +1225,7 @@ REALTIME_PROVIDERS = {
     ServiceProviders.GOOGLE_VERTEX_REALTIME.value,
     ServiceProviders.AZURE_REALTIME.value,
     ServiceProviders.AWS_NOVA_SONIC.value,
+    ServiceProviders.PERSONAPLEX.value,
 }
 
 
@@ -1161,6 +1258,7 @@ RealtimeConfig = Annotated[
         GoogleVertexRealtimeLLMConfiguration,
         AzureRealtimeLLMConfiguration,
         AWSNovaSonicRealtimeLLMConfiguration,
+        PersonaPlexRealtimeLLMConfiguration,
     ],
     Field(discriminator="provider"),
 ]
