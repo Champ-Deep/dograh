@@ -8,7 +8,7 @@ if [[ -f "$ENV_FILE" ]]; then
   set -a && . "$ENV_FILE" && set +a
 fi
 
-PORT="${WEB_PORT:-8000}"
+PORT="${WEB_PORT:-${PORT:-8000}}"
 
 # uvicorn trusts X-Forwarded-Proto / X-Forwarded-For only from peers listed
 # in the FORWARDED_ALLOW_IPS env var (default 127.0.0.1). Behind a reverse

@@ -11,8 +11,8 @@ RUN apk add --no-cache python3 make g++ libc6-compat
 # Copy package files
 COPY ui/package*.json ./
 
-# Clean install with proper handling of native modules
-RUN --mount=type=cache,target=/root/.npm npm ci
+# Clean install with proper handling of native modules.
+RUN npm ci
 
 # Stage 2: Builder
 FROM node:22-alpine AS builder
@@ -40,6 +40,8 @@ ENV NEXT_PUBLIC_NODE_ENV="oss"
 ENV NEXT_TELEMETRY_DISABLED="1"
 ENV NEXT_PUBLIC_CHATWOOT_URL="https://chat.dograh.com"
 ENV NEXT_PUBLIC_CHATWOOT_TOKEN="3fkFx2mCEjNHjM9gaNc4A82X"
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 ENV BACKEND_URL="http://api:8000"
 
 # Build the application with standalone mode
@@ -71,4 +73,4 @@ USER nextjs
 EXPOSE 3010
 
 # Start the production server using the standalone Node.js server
-CMD sh -c "echo '🚀 Application ready at http://localhost:3010' && PORT=3010 node server.js"
+CMD sh -c "echo '🚀 Application ready' && PORT=${PORT:-3010} node server.js"

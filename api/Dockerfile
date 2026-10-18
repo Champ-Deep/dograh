@@ -22,19 +22,18 @@ ENV VIRTUAL_ENV=/opt/venv \
     PATH=/opt/venv/bin:$PATH
 RUN python -m venv "$VIRTUAL_ENV"
 
-# Layer 1: API deps. Cache invalidates only when requirements.txt changes.
-RUN --mount=type=bind,source=api/requirements.txt,target=/tmp/req.txt \
-    --mount=type=cache,target=/root/.cache/uv \
-    uv pip install -r /tmp/req.txt
+# Layer 1: API deps. Copy rather than bind-mounting the source because Railway's
+# Docker builder supports cache mounts only.
+COPY api/requirements.txt /tmp/req.txt
+RUN uv pip install -r /tmp/req.txt
 
-# Layer 2: pipecat deps. Cache invalidates when pipecat source changes.
+# Layer 2: pipecat deps. Copy rather than bind-mounting the source for Railway.
 # After installing pipecat, swap opencv-python (pulled by pipecat[webrtc]) for
 # opencv-python-headless. The non-headless build links against X11/Qt
 # (libxcb*); without those shared libs in the image, `import cv2` fails at
 # runtime.
-RUN --mount=type=bind,source=pipecat,target=/tmp/pipecat,rw \
-    --mount=type=cache,target=/root/.cache/uv \
-    uv pip install '/tmp/pipecat[cartesia,deepgram,openai,elevenlabs,groq,google,azure,sarvam,soundfile,silero,webrtc,speechmatics,openrouter,camb,mcp,inworld,smallest,aws-nova-sonic]' \
+COPY pipecat /tmp/pipecat
+RUN uv pip install '/tmp/pipecat[cartesia,deepgram,openai,elevenlabs,groq,google,azure,sarvam,soundfile,silero,webrtc,speechmatics,openrouter,camb,mcp,inworld,smallest,aws-nova-sonic]' \
  && uv pip uninstall opencv-python \
  && uv pip install opencv-python-headless
 
@@ -57,14 +56,14 @@ RUN npm ci --omit=dev && npm cache clean --force
 #
 # Source: BtbN/FFmpeg-Builds, served from GitHub's release-assets CDN (fast,
 # highly available, multi-arch). We pin a specific build for reproducibility,
-# but to a *month-end* autobuild tag — not a daily one. BtbN prunes daily
+# but to a *month-end* autobuild tag - not a daily one. BtbN prunes daily
 # autobuilds after ~2 weeks (the previous pin was a daily tag and started
 # 404ing once GC'd), but keeps one month-end snapshot per month long-term
 # (~2 years back). A dated tag's assets are immutable, so the per-arch sha256
 # below never rots: builds stay reproducible AND integrity-verified.
 #
 # To upgrade ffmpeg: bump BTBN_TAG + BTBN_REV to a newer month-end autobuild
-# and refresh the two sha256s. No download needed — read tag, revision and
+# and refresh the two sha256s. No download needed - read tag, revision and
 # per-asset sha256 straight from the GitHub release-asset metadata:
 #   gh api repos/BtbN/FFmpeg-Builds/releases/tags/<tag> \
 #     --jq '.assets[] | select(.name|test("(linux64|linuxarm64)-gpl\\.tar\\.xz$")) | "\(.name) \(.digest)"'
@@ -138,13 +137,13 @@ ENV PYTHONUNBUFFERED=1
 COPY --chown=dograh:dograh ./api ./api
 
 # Entrypoint scripts.
-#   start_services_docker.sh — single-container (docker-compose) entrypoint
+#   start_services_docker.sh - single-container (docker-compose) entrypoint
 #     that runs every service in one process tree.
-#   run_*.sh                 — per-service entrypoints used by the Helm chart,
+#   run_*.sh                 - per-service entrypoints used by the Helm chart,
 #     which runs each workload (web, arq-worker, ari-manager,
 #     campaign-orchestrator, migrate) as its own pod. Keep this list in sync
 #     with the command:[] entries in deploy/helm/dograh/templates/*.yaml.
-#   drain_web.sh             — web pod preStop hook (call-safe scale-down); see
+#   drain_web.sh             - web pod preStop hook (call-safe scale-down); see
 #     lifecycle.preStop in deploy/helm/dograh/templates/web-deployment.yaml.
 COPY --chown=dograh:dograh \
      ./scripts/start_services_docker.sh \
@@ -160,7 +159,7 @@ COPY --chown=dograh:dograh \
 # The validator runs as a short-lived subprocess from api/mcp_server/ts_bridge.py.
 COPY --from=ts-deps --chown=dograh:dograh /ts_validator/node_modules ./api/mcp_server/ts_validator/node_modules
 
-# Product documentation — read at runtime by the MCP docs tools
+# Product documentation - read at runtime by the MCP docs tools
 # (search_dograh_docs / fetch_dograh_doc) so agents can learn Dograh.
 COPY --chown=dograh:dograh ./docs ./docs
 
