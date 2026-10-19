@@ -14,6 +14,7 @@ from api.db.telephony_phone_number_client import TelephonyPhoneNumberClient
 from api.db.telephony_trunk_client import TelephonyTrunkClient
 from api.db.tool_client import ToolClient
 from api.db.user_client import UserClient
+from api.db.voice_profile_client import VoiceProfileClient
 from api.db.webhook_credential_client import WebhookCredentialClient
 from api.db.webhook_delivery_client import WebhookDeliveryClient
 from api.db.workflow_client import WorkflowClient
@@ -47,6 +48,7 @@ class DBClient(
     TelephonyPhoneNumberClient,
     TelephonyTrunkClient,
     FolderClient,
+    VoiceProfileClient,
 ):
     """
     Unified database client that combines all specialized database operations.
@@ -70,6 +72,7 @@ class DBClient(
     - ToolClient: handles tool operations for reusable HTTP API tools
     - KnowledgeBaseClient: handles knowledge base document and vector search operations
     - FolderClient: handles folder operations for grouping workflows (agents)
+    - VoiceProfileClient: handles organization voice profile operations
     """
 
     pass

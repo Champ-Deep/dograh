@@ -218,6 +218,48 @@ class OrganizationConfigurationModel(Base):
     )
 
 
+class VoiceProfileModel(Base):
+    """One named TTS voice configuration an organization can attach to its agents.
+
+    ``tts`` holds the validated TTS configuration union for a single provider,
+    the same shape as ``byok.pipeline.tts`` (provider, api_key, model, voice,
+    language, speed, plus whatever that provider's registry class defines).
+    """
+
+    __tablename__ = "voice_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(
+        Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    name = Column(String(64), nullable=False)
+    tts = Column(JSON, nullable=False, default=dict)
+    is_default = Column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    organization = relationship("OrganizationModel")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "name", name="uq_voice_profiles_org_name"
+        ),
+        Index("ix_voice_profiles_org", "organization_id"),
+        Index(
+            "uq_voice_profiles_default",
+            "organization_id",
+            unique=True,
+            postgresql_where=text("is_default = true"),
+        ),
+    )
+
+
 class TelephonyConfigurationModel(Base):
     __tablename__ = "telephony_configurations"
 
