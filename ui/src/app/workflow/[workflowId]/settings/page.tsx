@@ -13,11 +13,13 @@ import {
     getModelConfigurationV2ApiV1OrganizationsModelConfigurationsV2Get,
     getModelConfigurationV2DefaultsApiV1OrganizationsModelConfigurationsV2DefaultsGet,
     getWorkflowApiV1WorkflowFetchWorkflowIdGet,
+    listVoiceProfilesApiV1OrganizationsVoiceProfilesGet,
 } from "@/client/sdk.gen";
 import type {
     ModelConfigurationPricingResponse,
     OrganizationAiModelConfigurationResponse,
     OrganizationAiModelConfigurationV2,
+    VoiceProfileResponse,
     WorkflowResponse,
 } from "@/client/types.gen";
 import {
@@ -46,6 +48,7 @@ import { useAuth } from "@/lib/auth";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import logger from "@/lib/logger";
 import { fetchModelConfigurationPricing } from "@/lib/modelConfigurationPricing";
+import { ORGANIZATION_DEFAULT_VOICE_VALUE, voiceProfileLabel } from "@/lib/voiceProfiles";
 import {
     type AmbientNoiseConfiguration,
     type CallDispositionOption,
@@ -306,6 +309,14 @@ function GeneralSection({
     const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
     const ambientFileInputRef = useRef<HTMLInputElement>(null);
     const { playingId, toggle: togglePlayback } = useAudioPlayback();
+    const { user, loading: voiceProfilesAuthLoading } = useAuth();
+    const voiceProfilesFetched = useRef(false);
+    const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfileResponse[]>([]);
+    const [voiceProfileId, setVoiceProfileId] = useState<number | null>(
+        typeof workflowConfigurations.voice_profile_id === "number"
+            ? workflowConfigurations.voice_profile_id
+            : null,
+    );
     const selectedTurnStartStrategy = TURN_START_STRATEGY_OPTIONS.find(
         (option) => option.value === turnStartStrategy,
     );
@@ -328,6 +339,20 @@ function GeneralSection({
         [callDispositionRows],
     );
 
+    // Voice profiles drive the Voice select below. A failed load only costs the
+    // profile list, so the section still saves with "Organization default".
+    useEffect(() => {
+        if (voiceProfilesAuthLoading || !user || voiceProfilesFetched.current) return;
+        voiceProfilesFetched.current = true;
+        void listVoiceProfilesApiV1OrganizationsVoiceProfilesGet().then((response) => {
+            if (response.error) {
+                logger.error("Failed to load voice profiles", response.error);
+                return;
+            }
+            setVoiceProfiles(response.data ?? []);
+        });
+    }, [voiceProfilesAuthLoading, user]);
+
     const isDirty = useMemo(() => {
         const initAmbient = workflowConfigurations.ambient_noise_configuration;
         return (
@@ -346,11 +371,12 @@ function GeneralSection({
             includeTranscriptEndTimestamps !==
             (workflowConfigurations.transcript_configuration?.include_end_timestamps ?? false) ||
             JSON.stringify(externalPbxFieldMappings) !==
-            JSON.stringify(workflowConfigurations.external_pbx_field_mappings) ||
+                JSON.stringify(workflowConfigurations.external_pbx_field_mappings) ||
             JSON.stringify(externalPbxLeadHeaders) !==
-            JSON.stringify(workflowConfigurations.external_pbx_lead_headers)
+                JSON.stringify(workflowConfigurations.external_pbx_lead_headers) ||
+            voiceProfileId !== (workflowConfigurations.voice_profile_id ?? null)
         );
-    }, [name, workflowName, ambientNoiseConfig, maxCallDuration, maxUserIdleTimeout, smartTurnStopSecs, turnStartStrategy, turnStartMinWords, turnStopStrategy, contextCompactionEnabled, ttsCacheEnabled, normalizedCallDispositions, includeTranscriptEndTimestamps, externalPbxFieldMappings, externalPbxLeadHeaders, workflowConfigurations]);
+    }, [name, workflowName, ambientNoiseConfig, maxCallDuration, maxUserIdleTimeout, smartTurnStopSecs, turnStartStrategy, turnStartMinWords, turnStopStrategy, contextCompactionEnabled, ttsCacheEnabled, normalizedCallDispositions, includeTranscriptEndTimestamps, externalPbxFieldMappings, externalPbxLeadHeaders, voiceProfileId, workflowConfigurations]);
 
     useUnsavedChanges("general", isDirty);
 
@@ -435,6 +461,7 @@ function GeneralSection({
                     },
                     external_pbx_field_mappings: externalPbxFieldMappings,
                     external_pbx_lead_headers: externalPbxLeadHeaders.map((field) => field.trim()),
+                    voice_profile_id: voiceProfileId,
                 },
                 name,
             );
@@ -475,6 +502,45 @@ function GeneralSection({
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Enter Agent name"
                     />
+                </div>
+
+                <Separator />
+
+                {/* Voice */}
+                <div className="space-y-2">
+                    <Label htmlFor="voice_profile_id" className="text-sm font-medium">
+                        Voice
+                    </Label>
+                    <Select
+                        value={
+                            voiceProfileId === null
+                                ? ORGANIZATION_DEFAULT_VOICE_VALUE
+                                : String(voiceProfileId)
+                        }
+                        onValueChange={(value) =>
+                            setVoiceProfileId(
+                                value === ORGANIZATION_DEFAULT_VOICE_VALUE ? null : Number(value),
+                            )
+                        }
+                    >
+                        <SelectTrigger id="voice_profile_id" className="w-full">
+                            <SelectValue placeholder="Organization default" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ORGANIZATION_DEFAULT_VOICE_VALUE}>
+                                Organization default
+                            </SelectItem>
+                            {voiceProfiles.map((profile) => (
+                                <SelectItem key={profile.id} value={String(profile.id)}>
+                                    {voiceProfileLabel(profile)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                        Voice profiles are managed on the Voices page. An agent without a profile
+                        uses the organization default voice profile, then the model configuration.
+                    </p>
                 </div>
 
                 <Separator />
