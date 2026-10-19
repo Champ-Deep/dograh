@@ -39,7 +39,7 @@ Never put values in this file. Set production values with `railway variable set 
 
 Both Dockerfiles build from the repository root because the API Dockerfile copies `api/`, `scripts/`, `docs/`, and the `pipecat/` submodule. `RAILWAY_DOCKERFILE_PATH` selects `api/Dockerfile` or `ui/Dockerfile`.
 
-Railway application services are deployed from a checkout of `Champ-Deep/dograh`, branch `feat/personaplex-realtime`. They are intentionally disconnected from Railway GitHub triggers because Railway's GitHub build checkout does not initialize git submodules. Deploy this fork from a checkout with Pipecat initialized:
+Railway application services are deployed from a checkout of `Champ-Deep/dograh`, branch `champvoice` (the ChampVoice branding plus voice profiles integration branch). They are intentionally disconnected from Railway GitHub triggers because Railway's GitHub build checkout does not initialize git submodules. Deploy this fork from a checkout with Pipecat initialized:
 
 ```bash
 git submodule update --init pipecat
@@ -48,12 +48,14 @@ railway up --detach --service arq-worker
 railway up --detach --service ui
 ```
 
-Run migrations before an API rollout or after an Alembic revision:
+Run migrations before an API rollout or after an Alembic revision. Current head: `20ef599817bd` (`add voice profiles`), applied to this stack on 2026-10-19.
 
 ```bash
 railway ssh -s arq-worker 'cd /app && ./scripts/run_migrate.sh'
 railway up --detach --service api
 ```
+
+The `ui` service healthcheck path is `/auth/login` with a 120 second timeout. The app root `/` always 307-redirects unauthenticated visitors to `/auth/login`, so a healthcheck on `/` can never return 2xx and every ui deploy fails the healthcheck window.
 
 Check progress and health:
 
