@@ -91,6 +91,7 @@
                 ]
               },
               "voice-agent/knowledge-base",
+              "voice-agent/voice-profiles",
               {
                 "group": "Nodes",
                 "pages": [
