@@ -25,6 +25,7 @@ from api.schemas.ai_model_configuration import (
     OrganizationAIModelConfigurationV2,
     compile_ai_model_configuration_v2,
 )
+from api.schemas.voice_profile import parse_voice_profile_tts
 from api.services.configuration.masking import (
     SERVICE_SECRET_FIELDS,
     contains_masked_key,
@@ -92,17 +93,83 @@ async def get_effective_ai_model_configuration_for_workflow(
         WORKFLOW_MODEL_CONFIGURATION_V2_OVERRIDE_KEY
     )
     if v2_override:
-        return compile_ai_model_configuration_v2(
+        effective = compile_ai_model_configuration_v2(
             OrganizationAIModelConfigurationV2.model_validate(v2_override)
         )
-
-    resolved_config = await get_resolved_ai_model_configuration(
+    else:
+        resolved_config = await get_resolved_ai_model_configuration(
+            organization_id=organization_id,
+        )
+        effective = resolve_effective_config(
+            resolved_config.effective,
+            workflow_configurations.get("model_overrides"),
+        )
+    # Voice profiles win over every TTS source above, including a workflow's
+    # own model override, so this runs on both paths.
+    await apply_voice_profile(
+        effective,
         organization_id=organization_id,
+        workflow_configurations=workflow_configurations,
     )
-    return resolve_effective_config(
-        resolved_config.effective,
-        workflow_configurations.get("model_overrides"),
-    )
+    return effective
+
+
+async def apply_voice_profile(
+    effective: EffectiveAIModelConfiguration,
+    *,
+    organization_id: int | None,
+    workflow_configurations: dict,
+) -> None:
+    """Replace *effective*.tts with the resolved voice profile's TTS.
+
+    Resolution order: the workflow's ``voice_profile_id``, then the
+    organization's default voice profile (``is_default``), then the TTS
+    already on *effective* (the organization model configuration or the
+    workflow's model override). Realtime pipelines have no TTS stage, so they
+    are left untouched.
+    """
+    if effective.is_realtime or organization_id is None:
+        return
+
+    try:
+        profile = None
+        profile_id = workflow_configurations.get("voice_profile_id")
+        if profile_id is not None:
+            try:
+                profile_id = int(profile_id)
+            except (TypeError, ValueError):
+                logger.warning(
+                    f"Ignoring non-numeric voice_profile_id {profile_id!r} in "
+                    f"workflow configurations for organization {organization_id}"
+                )
+                profile_id = None
+        if profile_id is not None:
+            profile = await db_client.get_voice_profile(
+                profile_id, organization_id=organization_id
+            )
+            if profile is None:
+                logger.warning(
+                    f"Voice profile {profile_id} not found for organization "
+                    f"{organization_id}; falling back to the organization "
+                    "default voice profile."
+                )
+        if profile is None:
+            profile = await db_client.get_default_voice_profile(
+                organization_id=organization_id
+            )
+        if profile is None:
+            return
+        effective.tts = parse_voice_profile_tts(profile.tts)
+    except ValueError as exc:
+        logger.warning(
+            f"Voice profile for organization {organization_id} has an invalid "
+            f"TTS configuration ({exc}); keeping the configured TTS."
+        )
+    except Exception as exc:  # noqa: BLE001 - an optional override must not kill call setup
+        logger.warning(
+            f"Voice profile lookup failed for organization {organization_id}: "
+            f"{type(exc).__name__}: {exc}; keeping the configured TTS."
+        )
 
 
 async def get_organization_ai_model_configuration_v2(

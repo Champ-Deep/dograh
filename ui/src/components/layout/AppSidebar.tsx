@@ -15,6 +15,7 @@ import {
   LogOut,
   type LucideIcon,
   Megaphone,
+  Mic,
   Phone,
   Settings,
   TrendingUp,
@@ -100,6 +101,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Models",
         url: "/model-configurations",
         icon: Brain,
+      },
+      {
+        title: "Voices",
+        url: "/voices",
+        icon: Mic,
       },
       {
         title: "Telephony",

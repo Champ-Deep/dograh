@@ -11,16 +11,18 @@ from api.constants import (
     DEPLOYMENT_MODE,
 )
 from api.db import db_client
-from api.db.models import UserModel
+from api.db.models import UserModel, VoiceProfileModel
 from api.db.telephony_configuration_client import (
     TelephonyConfigurationConflictError,
     TelephonyConfigurationInUseError,
 )
 from api.db.telephony_phone_number_client import TelephonyPhoneNumberConflictError
 from api.db.telephony_trunk_client import TelephonyTrunkConflictError
+from api.db.voice_profile_client import VoiceProfileConflictError
 from api.enums import OrganizationConfigurationKey, PostHogEvent
 from api.errors.failure import ErrorSource, classify_exception, log_failure
 from api.errors.mps import MPSUnavailableError
+from api.routes.user import VoiceInfo, VoicesResponse
 from api.schemas.ai_model_configuration import (
     DOGRAH_DEFAULT_LANGUAGE,
     DOGRAH_DEFAULT_VOICE,
@@ -54,6 +56,14 @@ from api.schemas.telephony_phone_number import (
     PhoneNumberResponse,
     PhoneNumberUpdateRequest,
     ProviderSyncStatus,
+)
+from api.schemas.voice_profile import (
+    VoiceProfileCreate,
+    VoiceProfileResponse,
+    VoiceProfileUpdate,
+    mask_voice_profile_tts,
+    merge_voice_profile_tts,
+    parse_voice_profile_tts,
 )
 from api.services.auth.depends import (
     get_user,
@@ -1874,4 +1884,237 @@ async def get_campaign_defaults(user: UserModel = Depends(get_user)):
         from_numbers_count=from_numbers_count,
         default_retry_config=RetryConfigResponse(**DEFAULT_CAMPAIGN_RETRY_CONFIG),
         last_campaign_settings=last_campaign_settings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Voice profiles
+# ---------------------------------------------------------------------------
+
+# Providers whose voice catalog the MPS voice proxy can list. Everything else
+# falls back to the registry's static per-model voice options.
+MPS_VOICE_CATALOG_PROVIDERS = {
+    "elevenlabs",
+    "deepgram",
+    "sarvam",
+    "cartesia",
+    "dograh",
+    "rime",
+}
+
+
+def _voice_profile_response(row: VoiceProfileModel) -> VoiceProfileResponse:
+    return VoiceProfileResponse(
+        id=row.id,
+        organization_id=row.organization_id,
+        name=row.name,
+        tts=mask_voice_profile_tts(parse_voice_profile_tts(row.tts)),
+        is_default=row.is_default,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _registry_voice_options(provider: str, model: str | None) -> dict:
+    registry_cls = REGISTRY[ServiceType.TTS].get(provider)
+    if registry_cls is None:
+        return {}
+    field = registry_cls.model_fields.get("voice")
+    extra = getattr(field, "json_schema_extra", None)
+    return extra if isinstance(extra, dict) else {}
+
+
+async def _voice_profile_voices(
+    *, tts, organization_id: int, created_by: str
+) -> VoicesResponse:
+    provider = getattr(tts.provider, "value", tts.provider)
+    model = getattr(tts, "model", None)
+    voice_options = _registry_voice_options(provider, model)
+
+    # 1. Registry static per-model voice list (Sarvam bulbul:v2/v3 named voices).
+    model_options = voice_options.get("model_options")
+    if isinstance(model_options, dict) and model in model_options:
+        return VoicesResponse(
+            provider=provider,
+            voices=[
+                VoiceInfo(voice_id=str(voice), name=str(voice))
+                for voice in model_options[model]
+            ],
+        )
+
+    # 2. Dynamic catalog through the existing org-scoped voice proxy.
+    if provider in MPS_VOICE_CATALOG_PROVIDERS:
+        try:
+            result = await mps_service_key_client.get_voices(
+                provider=provider,
+                model=model,
+                organization_id=organization_id,
+                created_by=created_by,
+            )
+        except MPSUnavailableError:
+            # The MPS boundary emitted the classified failure; the app-level
+            # handler converts it to a customer-safe HTTP 503.
+            raise
+        except Exception as exc:
+            log_failure(
+                classify_exception(
+                    exc,
+                    source=ErrorSource.PLATFORM,
+                    provider=provider,
+                    error_owner="operator",
+                ),
+                organization_id=organization_id,
+                operation="validate_voice_catalog_response",
+                requested_provider=provider,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to fetch voices for {provider}",
+            ) from exc
+        return VoicesResponse(
+            provider=result.get("provider", provider),
+            voices=[VoiceInfo(**voice) for voice in result.get("voices", [])],
+            facets=result.get("facets"),
+        )
+
+    # 3. Static example list from the registry, otherwise nothing to pick from.
+    examples = voice_options.get("examples")
+    if isinstance(examples, list) and examples:
+        return VoicesResponse(
+            provider=provider,
+            voices=[
+                VoiceInfo(voice_id=str(voice), name=str(voice))
+                for voice in examples
+            ],
+        )
+    return VoicesResponse(provider=provider, voices=[])
+
+
+@router.get("/voice-profiles", response_model=List[VoiceProfileResponse])
+async def list_voice_profiles(
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    rows = await db_client.list_voice_profiles(user.selected_organization_id)
+    return [_voice_profile_response(row) for row in rows]
+
+
+@router.post("/voice-profiles", response_model=VoiceProfileResponse)
+async def create_voice_profile(
+    request: VoiceProfileCreate,
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    try:
+        tts = merge_voice_profile_tts(request.tts)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    name = request.name.strip()
+    try:
+        row = await db_client.create_voice_profile(
+            organization_id=user.selected_organization_id,
+            name=name,
+            tts=tts.model_dump(mode="json"),
+            is_default=request.is_default,
+        )
+    except VoiceProfileConflictError:
+        raise HTTPException(
+            status_code=409,
+            detail=f'Voice profile "{name}" already exists in this organization',
+        )
+    return _voice_profile_response(row)
+
+
+@router.get("/voice-profiles/{profile_id}", response_model=VoiceProfileResponse)
+async def get_voice_profile(
+    profile_id: int,
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    row = await db_client.get_voice_profile(
+        profile_id, organization_id=user.selected_organization_id
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail=f"Voice profile with id {profile_id} not found"
+        )
+    return _voice_profile_response(row)
+
+
+@router.put("/voice-profiles/{profile_id}", response_model=VoiceProfileResponse)
+async def update_voice_profile(
+    profile_id: int,
+    request: VoiceProfileUpdate,
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    existing = await db_client.get_voice_profile(
+        profile_id, organization_id=user.selected_organization_id
+    )
+    if existing is None:
+        raise HTTPException(
+            status_code=404, detail=f"Voice profile with id {profile_id} not found"
+        )
+
+    name = request.name.strip() if request.name is not None else None
+    try:
+        tts = (
+            merge_voice_profile_tts(request.tts, existing.tts).model_dump(mode="json")
+            if request.tts is not None
+            else None
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    try:
+        row = await db_client.update_voice_profile(
+            profile_id,
+            organization_id=user.selected_organization_id,
+            name=name,
+            tts=tts,
+            is_default=request.is_default,
+        )
+    except VoiceProfileConflictError:
+        raise HTTPException(
+            status_code=409,
+            detail=f'Voice profile "{name}" already exists in this organization',
+        )
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail=f"Voice profile with id {profile_id} not found"
+        )
+    return _voice_profile_response(row)
+
+
+@router.delete("/voice-profiles/{profile_id}")
+async def delete_voice_profile(
+    profile_id: int,
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    deleted = await db_client.delete_voice_profile(
+        profile_id, organization_id=user.selected_organization_id
+    )
+    if not deleted:
+        raise HTTPException(
+            status_code=404, detail=f"Voice profile with id {profile_id} not found"
+        )
+    return {"success": True, "message": "Voice profile deleted"}
+
+
+@router.get(
+    "/voice-profiles/{profile_id}/voices",
+    response_model=VoicesResponse,
+)
+async def get_voice_profile_voices(
+    profile_id: int,
+    user: UserModel = Depends(get_user_with_selected_organization),
+):
+    """List the voices the stored profile can speak with."""
+    row = await db_client.get_voice_profile(
+        profile_id, organization_id=user.selected_organization_id
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail=f"Voice profile with id {profile_id} not found"
+        )
+    tts = parse_voice_profile_tts(row.tts)
+    return await _voice_profile_voices(
+        tts=tts,
+        organization_id=user.selected_organization_id,
+        created_by=user.provider_id,
     )

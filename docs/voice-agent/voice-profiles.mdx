@@ -1,0 +1,73 @@
+---
+title: "Voice Profiles"
+description: "Keep several TTS providers side by side in one organization and give every agent the voice it speaks with"
+---
+
+A voice profile is one named TTS configuration owned by your organization: a provider, that provider's API key, and the model, voice, language, and speed to speak with. Where the model configuration holds exactly one organization-wide TTS, voice profiles let you keep many at once (Sarvam's Indian voices next to Cartesia, Deepgram Aura, ElevenLabs, and the managed default) and choose per agent.
+
+## Managing profiles
+
+Open **Voices** in the sidebar (next to **Models**). From there you can add, edit, and delete profiles and mark one as the **Organization default**.
+
+Each profile stores:
+
+| Field | What it is |
+| --- | --- |
+| Name | Unique per organization, shown in the agent's Voice picker |
+| Provider | Any TTS provider the platform supports |
+| API key | That provider's key, stored with the profile and always shown masked |
+| Model | For example Sarvam `bulbul:v2` or `bulbul:v3` |
+| Voice | The voice to speak with, picked from the provider's catalog or typed in |
+| Language | Provider language code, for example `hi-IN` |
+| Speed | Speech speed multiplier |
+| Organization default | The one profile agents without their own profile use |
+
+The same surface is available over the API under `/api/v1/organizations/voice-profiles` (list, create, get, update, delete, plus `GET /api/v1/organizations/voice-profiles/{id}/voices` for the provider's voice list). Every route is organization scoped, and payloads validate against the same TTS configuration schema the model configuration uses, so an unknown provider is rejected with a 422.
+
+## How an agent picks its voice
+
+Open the agent's **settings** panel and use the **Voice** select. Pick a profile, or leave it on **Organization default**. Resolution order at run time:
+
+1. The voice profile selected on the agent (its `voice_profile_id` in the workflow configuration).
+2. The organization's default voice profile (`is_default`), if one exists.
+3. The organization model configuration TTS, unchanged from before.
+
+Selecting a profile from another organization's id is rejected with a 404 on save. A profile only overrides the TTS stage: LLM, transcriber, and embeddings stay whatever the organization configuration says, so a managed (Dograh mode) organization can still speak with a Sarvam profile while keeping its managed LLM. Realtime (speech-to-speech) agents have no TTS stage and ignore voice profiles.
+
+## Example: a Hindi Sarvam voice
+
+Create a profile with:
+
+- Provider: `Sarvam`
+- API key: your Sarvam key
+- Model: `bulbul:v3`
+- Voice: `anushka`
+- Language: `hi-IN`
+- Speed: `1`
+
+Then pick that profile on the agent that should speak Hindi. Other agents keep their own voices or the organization default.
+
+The API equivalent:
+
+```json
+{
+  "name": "Hindi support line",
+  "tts": {
+    "provider": "sarvam",
+    "api_key": "your-sarvam-key",
+    "model": "bulbul:v3",
+    "voice": "anushka",
+    "language": "hi-IN",
+    "speed": 1.0
+  },
+  "is_default": false
+}
+```
+
+<Note>
+When you edit a profile, the API key comes back masked (only the last characters are visible). Saving that masked value keeps the stored key; type a new key to rotate it.
+</Note>
+
+## Voice lists and previews
+
+Sarvam's named voices come from the built-in catalog for the selected Bulbul model. ElevenLabs, Cartesia, Deepgram, Rime, and the managed default list through the platform voice catalog, which needs a network round trip and can include preview samples you can play from the picker. Providers without a hosted catalog fall back to entering a voice ID by hand, and voices without a sample have the Preview button disabled.

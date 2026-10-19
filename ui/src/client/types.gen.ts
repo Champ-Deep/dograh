@@ -737,7 +737,9 @@ export type ByokRealtimeAiModelConfiguration = {
         provider: 'azure_realtime';
     } & AzureRealtimeLlmConfiguration) | ({
         provider: 'aws_nova_sonic';
-    } & AwsNovaSonicRealtimeLlmConfiguration);
+    } & AwsNovaSonicRealtimeLlmConfiguration) | ({
+        provider: 'personaplex';
+    } & PersonaPlexRealtimeLlmConfiguration);
     /**
      * Llm
      */
@@ -4796,6 +4798,48 @@ export type OrganizationPreferencesResponse = {
 };
 
 /**
+ * PersonaPlex
+ *
+ * Self-hosted NVIDIA PersonaPlex full-duplex speech-to-speech model. Runs the Moshi-lineage architecture; served over the Moshi binary Opus WebSocket protocol, not the OpenAI Realtime event protocol.
+ */
+export type PersonaPlexRealtimeLlmConfiguration = {
+    /**
+     * Provider
+     */
+    provider?: 'personaplex';
+    /**
+     * Api Key
+     *
+     * Usually not required. PersonaPlex's reference server has no auth; leave blank unless you front it with your own gateway.
+     */
+    api_key?: string | Array<string> | null;
+    /**
+     * Model
+     *
+     * Model identifier, recorded for display and run metadata.
+     */
+    model?: string;
+    /**
+     * Base Url
+     *
+     * Moshi-protocol WebSocket endpoint of the PersonaPlex server (python -m moshi.server). Note ws://, not wss://, unless the server was started with --ssl.
+     */
+    base_url?: string;
+    /**
+     * Voice
+     *
+     * Voice prompt preset conditioning the agent's vocal character. These are precomputed audio-token embeddings shipped with the model; a custom brand voice is supplied as a .pt voice prompt.
+     */
+    voice?: string;
+    /**
+     * Voice Prompt Path
+     *
+     * Filesystem path to a custom .pt voice-prompt embedding. Leave unset to use the preset named in `voice`. Runs on the PersonaPlex host, not on the Dograh host.
+     */
+    voice_prompt_path?: string | null;
+};
+
+/**
  * PhoneNumberCreateRequest
  *
  * Create a new phone number under a telephony configuration.
@@ -7971,6 +8015,146 @@ export type VoiceInfo = {
 };
 
 /**
+ * VoiceProfileCreate
+ */
+export type VoiceProfileCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Tts
+     */
+    tts: ({
+        provider: 'deepgram';
+    } & DeepgramTtsConfiguration) | ({
+        provider: 'google';
+    } & GoogleTtsConfiguration) | ({
+        provider: 'openai';
+    } & OpenAittsService) | ({
+        provider: 'elevenlabs';
+    } & ElevenlabsTtsConfiguration) | ({
+        provider: 'cartesia';
+    } & CartesiaTtsConfiguration) | ({
+        provider: 'inworld';
+    } & InworldTtsConfiguration) | ({
+        provider: 'dograh';
+    } & DograhTtsService) | ({
+        provider: 'sarvam';
+    } & SarvamTtsConfiguration) | ({
+        provider: 'camb';
+    } & CambTtsConfiguration) | ({
+        provider: 'rime';
+    } & RimeTtsConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesTtsConfiguration) | ({
+        provider: 'minimax';
+    } & MiniMaxTtsConfiguration) | ({
+        provider: 'azure_speech';
+    } & AzureSpeechTtsConfiguration) | ({
+        provider: 'smallest';
+    } & SmallestAittsConfiguration) | ({
+        provider: 'xai';
+    } & XaittsConfiguration) | ({
+        provider: 'lmnt';
+    } & LmntTtsConfiguration) | ({
+        provider: 'speechify';
+    } & SpeechifyTtsConfiguration);
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+};
+
+/**
+ * VoiceProfileResponse
+ */
+export type VoiceProfileResponse = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Organization Id
+     */
+    organization_id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Tts
+     */
+    tts: {
+        [key: string]: unknown;
+    };
+    /**
+     * Is Default
+     */
+    is_default: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * VoiceProfileUpdate
+ */
+export type VoiceProfileUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Tts
+     */
+    tts?: ({
+        provider: 'deepgram';
+    } & DeepgramTtsConfiguration) | ({
+        provider: 'google';
+    } & GoogleTtsConfiguration) | ({
+        provider: 'openai';
+    } & OpenAittsService) | ({
+        provider: 'elevenlabs';
+    } & ElevenlabsTtsConfiguration) | ({
+        provider: 'cartesia';
+    } & CartesiaTtsConfiguration) | ({
+        provider: 'inworld';
+    } & InworldTtsConfiguration) | ({
+        provider: 'dograh';
+    } & DograhTtsService) | ({
+        provider: 'sarvam';
+    } & SarvamTtsConfiguration) | ({
+        provider: 'camb';
+    } & CambTtsConfiguration) | ({
+        provider: 'rime';
+    } & RimeTtsConfiguration) | ({
+        provider: 'speaches';
+    } & SpeachesTtsConfiguration) | ({
+        provider: 'minimax';
+    } & MiniMaxTtsConfiguration) | ({
+        provider: 'azure_speech';
+    } & AzureSpeechTtsConfiguration) | ({
+        provider: 'smallest';
+    } & SmallestAittsConfiguration) | ({
+        provider: 'xai';
+    } & XaittsConfiguration) | ({
+        provider: 'lmnt';
+    } & LmntTtsConfiguration) | ({
+        provider: 'speechify';
+    } & SpeechifyTtsConfiguration) | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean | null;
+};
+
+/**
  * VoicesResponse
  */
 export type VoicesResponse = {
@@ -8195,6 +8379,12 @@ export type WorkflowConfigurationDefaults = {
      * External Pbx Lead Headers
      */
     external_pbx_lead_headers?: Array<string>;
+    /**
+     * Voice Profile Id
+     *
+     * Voice profile this agent speaks with. Must belong to the organization. When unset, the organization default voice profile is used if one exists, otherwise the organization model configuration.
+     */
+    voice_profile_id?: number | null;
     [key: string]: unknown;
 };
 
@@ -13881,6 +14071,260 @@ export type GetCampaignDefaultsApiV1OrganizationsCampaignDefaultsGetResponses = 
 };
 
 export type GetCampaignDefaultsApiV1OrganizationsCampaignDefaultsGetResponse = GetCampaignDefaultsApiV1OrganizationsCampaignDefaultsGetResponses[keyof GetCampaignDefaultsApiV1OrganizationsCampaignDefaultsGetResponses];
+
+export type ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles';
+};
+
+export type ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetError = ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetErrors[keyof ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetErrors];
+
+export type ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetResponses = {
+    /**
+     * Response List Voice Profiles Api V1 Organizations Voice Profiles Get
+     *
+     * Successful Response
+     */
+    200: Array<VoiceProfileResponse>;
+};
+
+export type ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetResponse = ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetResponses[keyof ListVoiceProfilesApiV1OrganizationsVoiceProfilesGetResponses];
+
+export type CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostData = {
+    body: VoiceProfileCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles';
+};
+
+export type CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostError = CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostErrors[keyof CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostErrors];
+
+export type CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: VoiceProfileResponse;
+};
+
+export type CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostResponse = CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostResponses[keyof CreateVoiceProfileApiV1OrganizationsVoiceProfilesPostResponses];
+
+export type DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles/{profile_id}';
+};
+
+export type DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteError = DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteErrors[keyof DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteErrors];
+
+export type DeleteVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles/{profile_id}';
+};
+
+export type GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetError = GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetErrors[keyof GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetErrors];
+
+export type GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: VoiceProfileResponse;
+};
+
+export type GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetResponse = GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetResponses[keyof GetVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdGetResponses];
+
+export type UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutData = {
+    body: VoiceProfileUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles/{profile_id}';
+};
+
+export type UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutError = UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutErrors[keyof UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutErrors];
+
+export type UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: VoiceProfileResponse;
+};
+
+export type UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutResponse = UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutResponses[keyof UpdateVoiceProfileApiV1OrganizationsVoiceProfilesProfileIdPutResponses];
+
+export type GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'X-API-Key'?: string | null;
+    };
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: number;
+    };
+    query?: never;
+    url: '/api/v1/organizations/voice-profiles/{profile_id}/voices';
+};
+
+export type GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetErrors = {
+    /**
+     * Not found
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetError = GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetErrors[keyof GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetErrors];
+
+export type GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: VoicesResponse;
+};
+
+export type GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetResponse = GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetResponses[keyof GetVoiceProfileVoicesApiV1OrganizationsVoiceProfilesProfileIdVoicesGetResponses];
 
 export type GetSignedUrlApiV1S3SignedUrlGetData = {
     body?: never;
