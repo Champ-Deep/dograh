@@ -279,10 +279,13 @@ export default function BillingPage() {
                 <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
                     <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                     <div className="text-sm text-amber-900 dark:text-amber-200">
-                        <p className="font-medium">Credit purchases are unavailable in OSS mode</p>
+                        <p className="font-medium">Credits only meter the Managed model pipeline</p>
                         <p className="mt-1">
-                            Managed model credits are provisioned by the ChampVoice admin. Bring
-                            your own keys under Models, BYOK to avoid credit usage.
+                            Managed mode runs on Dograh&apos;s hosted transcriber, LLM and voice
+                            service, metered at 1 credit per cent. This install has a 500 credit trial.
+                            To keep using Managed mode after that, buy credits at app.dograh.com and
+                            paste the service key under Models. To run on your own provider accounts
+                            with no credits at all, switch Models to BYOK.
                         </p>
                     </div>
                 </div>

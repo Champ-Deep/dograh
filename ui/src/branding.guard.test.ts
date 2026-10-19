@@ -43,6 +43,8 @@ const ALLOWED = [
   // Copy never spells the brand in lowercase, and JSX text after `>` is not
   // preceded by these characters, so visible lowercase text still fails.
   { re: /[.({[]\s*dograh\b/g, why: "member access" },
+  // Billing truthfully names the upstream hosted model vendor that credits pay.
+  { re: /Dograh&apos;s hosted transcriber/g, why: "billing vendor disclosure" },
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
