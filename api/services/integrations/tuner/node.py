@@ -75,7 +75,7 @@ _COST_RATE_RENDERER_OPTIONS = PropertyRendererOptions(
         },
         "tuner_enabled": {
             "display_name": "Enabled",
-            "description": "When false, Dograh skips exporting this call to Tuner.",
+            "description": "When false, ChampVoice skips exporting this call to Tuner.",
         },
         "tuner_agent_id": {
             "display_name": "Tuner Agent ID",
@@ -100,7 +100,7 @@ class TunerNodeData(BaseNodeData):
         default=True,
         ui_type=PropertyType.boolean,
         display_name="Enabled",
-        description="When false, Dograh skips exporting this call to Tuner.",
+        description="When false, ChampVoice skips exporting this call to Tuner.",
     )
     tuner_agent_id: str | None = spec_field(
         default=None,

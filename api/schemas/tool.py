@@ -130,7 +130,7 @@ class HttpApiConfig(BaseModel):
     preset_parameters: list[PresetToolParameter] | None = Field(
         default=None,
         description=(
-            "Parameters injected by Dograh from fixed values or workflow context "
+            "Parameters injected by ChampVoice from fixed values or workflow context "
             "templates."
         ),
     )
@@ -236,7 +236,7 @@ class HttpTransferResolverConfig(BaseModel):
     )
     wait_message: str | None = Field(
         default=None,
-        description="Optional short message played while Dograh resolves routing.",
+        description="Optional short message played while ChampVoice resolves routing.",
     )
     parameters: list[ToolParameter] | None = Field(
         default=None,
@@ -245,7 +245,7 @@ class HttpTransferResolverConfig(BaseModel):
     preset_parameters: list[PresetToolParameter] | None = Field(
         default=None,
         description=(
-            "Parameters injected by Dograh from fixed values or workflow context "
+            "Parameters injected by ChampVoice from fixed values or workflow context "
             "templates."
         ),
     )
@@ -436,7 +436,7 @@ class TransferCallConfig(BaseModel):
         max_length=MAX_TRANSFER_CALL_DISPOSITION_LENGTH,
         description=(
             "Optional disposition to record after a successful transfer. When "
-            "omitted, Dograh records its provider-specific transfer default."
+            "omitted, ChampVoice records its provider-specific transfer default."
         ),
     )
     parameters: list[ToolParameter] | None = Field(
@@ -583,7 +583,7 @@ class TransferAgentConfig(BaseModel):
 
     workflow_id: int = Field(
         description=(
-            "Id of the Dograh agent to transfer to. Must be in the same "
+            "Id of the ChampVoice agent to transfer to. Must be in the same "
             "organization, and must not be a speech-to-speech agent."
         ),
         json_schema_extra=_llm_hint(

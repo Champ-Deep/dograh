@@ -731,7 +731,7 @@ _UI_METADATA = ProviderUIMetadata(
             type="text",
             description=(
                 "Your Cloudonix domain (for example, acme.cloudonix.net). "
-                "Dograh fetches and stores its UUID automatically."
+                "ChampVoice fetches and stores its UUID automatically."
             ),
         ),
         ProviderUIField(
