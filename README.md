@@ -1,3 +1,9 @@
+# ChampVoice
+
+Voice agents by Champions Group. Built on [Dograh](https://github.com/dograh-hq/dograh), used under the BSD-2-Clause License. The Dograh name, logos and original code belong to the Dograh authors; see [LICENSE](LICENSE).
+
+---
+
 # Dograh AI
 
 <p align="center">
