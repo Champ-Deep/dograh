@@ -59,7 +59,7 @@ from api.services.workflow.node_specs.model_spec import (
         },
         "paygent_enabled": {
             "display_name": "Enabled",
-            "description": "When false, Dograh skips all Paygent tracking for this call.",
+            "description": "When false, ChampVoice skips all Paygent tracking for this call.",
         },
         "paygent_api_key": {
             "display_name": "Paygent API Key",
@@ -89,7 +89,7 @@ class PaygentNodeData(BaseNodeData):
         default=True,
         ui_type=PropertyType.boolean,
         display_name="Enabled",
-        description="When false, Dograh skips all Paygent tracking for this call.",
+        description="When false, ChampVoice skips all Paygent tracking for this call.",
     )
     paygent_api_key: str | None = spec_field(
         default=None,

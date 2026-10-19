@@ -732,7 +732,7 @@ export const useWebSocketRTC = ({ workflowId, workflowRunId, accessToken, initia
                 const message = detailFromError(
                     response.error,
                     isServiceUnavailable
-                        ? 'Dograh is temporarily unavailable. Please try again later.'
+                        ? 'ChampVoice is temporarily unavailable. Please try again later.'
                         : 'API Key Error',
                 );
 

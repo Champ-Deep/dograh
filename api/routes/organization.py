@@ -1189,7 +1189,7 @@ def _require_trunk_support(provider: str):
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Dograh does not model trunks on {provider} configurations — "
+                f"ChampVoice does not model trunks on {provider} configurations; "
                 f"calls route through the provider account itself. Numbers on "
                 f"this configuration need no trunk."
             ),

@@ -187,4 +187,4 @@ def _reject_dograh_provider(section: str, service) -> None:
     if service is None:
         return
     if getattr(service, "provider", None) == ServiceProviders.DOGRAH:
-        raise ValueError(f"BYOK {section} cannot use Dograh provider")
+        raise ValueError(f"BYOK {section} cannot use ChampVoice provider")
