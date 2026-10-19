@@ -1166,6 +1166,20 @@ async def update_workflow(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ExternalPBXConfigurationDisabledError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+        # A workflow may only point at a voice profile its own organization
+        # owns; the FK-free JSON column proves nothing about ownership.
+        voice_profile_id = (workflow_configurations or {}).get("voice_profile_id")
+        if voice_profile_id is not None:
+            voice_profile = await db_client.get_voice_profile(
+                int(voice_profile_id),
+                organization_id=user.selected_organization_id,
+            )
+            if voice_profile is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Voice profile with id {voice_profile_id} not found",
+                )
         if workflow_configurations and workflow_configurations.get(
             WORKFLOW_MODEL_CONFIGURATION_V2_OVERRIDE_KEY
         ):

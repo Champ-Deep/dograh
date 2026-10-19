@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 
 from pydantic import (
     BaseModel,
@@ -175,6 +175,15 @@ class WorkflowConfigurationDefaults(BaseModel):
     external_pbx_lead_headers: list[ExternalPBXLeadHeader] = Field(
         default_factory=list,
         max_length=MAX_EXTERNAL_PBX_LEAD_HEADERS,
+    )
+    voice_profile_id: Optional[int] = Field(
+        default=None,
+        description=(
+            "Voice profile this agent speaks with. Must belong to the "
+            "organization. When unset, the organization default voice profile "
+            "is used if one exists, otherwise the organization model "
+            "configuration."
+        ),
     )
 
     @field_validator("turn_start_strategy", mode="before")
